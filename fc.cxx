@@ -60,6 +60,53 @@ std::vector<double> wilks_critical_values()
   return std::vector<double>(kDeltaScanValues.size(), 1);
 }
 
+struct Expt
+{
+  Expt(double N, double p, double d = -1) : Nobs(N), prob(p), dchisq(d) {}
+  bool operator<(const Expt& e) const {return dchisq < e.dchisq;}
+  double Nobs;
+  double prob;
+  double dchisq;
+};
+
+std::vector<Expt> mock_expts(double delta_true,
+                             const std::vector<double>& chisq_best)
+{
+  std::vector<Expt> expts;
+
+  for(int i = 0; i < Nmax*invstep; ++i){
+    const double Nobs = i/double(invstep);
+
+    // Probablility of observing Nobs given delta_true
+    const double prob = gaus(Nobs, Nexp(delta_true))/double(invstep);
+
+    const double chisq_true = chisq(Nobs, Nexp(delta_true));
+
+    const double dchisq = chisq_true - chisq_best[i];
+
+    expts.emplace_back(Nobs, prob, dchisq);
+  } // end for Nobs
+
+  return expts;
+}
+
+double fc_critical_value_single(double delta_true,
+                                const std::vector<double>& chisq_best)
+{
+  std::vector<Expt> expts = mock_expts(delta_true, chisq_best);
+
+  std::sort(expts.begin(), expts.end()); // from low to high dchisq
+
+  double cov = 0;
+  double crit = 0;
+  for(const Expt& e: expts){
+    cov += e.prob;
+    if(cov > .6827) return e.dchisq; // TODO interpolate to previous value?
+  }
+
+  abort();
+}
+
 std::vector<double> fc_critical_values(const std::vector<double>& chisq_best)
 {
   std::vector<double> dchisq_crit(kDeltaScanValues.size());
@@ -67,43 +114,27 @@ std::vector<double> fc_critical_values(const std::vector<double>& chisq_best)
   for(int j = 0; j < kDeltaScanValues.size(); ++j){
     const double delta_true = kDeltaScanValues[j];
 
-    struct Expt{
-      Expt(double d, double p) : dchisq(d), prob(p) {}
-      bool operator<(const Expt& e) const {return dchisq < e.dchisq;}
-      double dchisq;
-      double prob;
-    };
-
-    std::vector<Expt> expts;
-
-    for(int i = 0; i < Nmax*invstep; ++i){
-      const double Nobs = i/double(invstep);
-
-      // Probablility of observing Nobs given delta_true
-      const double prob = gaus(Nobs, Nexp(delta_true))/double(invstep);
-
-      const double chisq_true = chisq(Nobs, Nexp(delta_true));
-
-      const double dchisq = chisq_true - chisq_best[i];
-
-      expts.emplace_back(dchisq, prob);
-    } // end for Nobs (i)
-
-    std::sort(expts.begin(), expts.end()); // from low to high dchisq
-
-    double cov = 0;
-    double crit = 0;
-    for(const Expt& e: expts){
-      cov += e.prob;
-      if(cov > .6827){
-        crit = e.dchisq; // TODO interpolate to previous value?
-        break;
-      }
-    } // end for e
-    dchisq_crit[j] = crit;
+    dchisq_crit[j] = fc_critical_value_single(delta_true, chisq_best);
   } // end for delta_true (j)
 
   return dchisq_crit;
+}
+
+double evaluate_coverage_single(double delta_true,
+                                double dchisq_crit,
+                                const std::vector<double>& chisq_best)
+{
+  double coverage = 0;
+
+  const std::vector<Expt> expts = mock_expts(delta_true, chisq_best);
+
+  for(const Expt& e: expts){
+    if(e.dchisq <= dchisq_crit){
+      coverage += e.prob;
+    }
+  }
+
+  return coverage;
 }
 
 std::vector<double> evaluate_coverage(const std::vector<double>& dchisq_crit,
@@ -114,22 +145,7 @@ std::vector<double> evaluate_coverage(const std::vector<double>& dchisq_crit,
   for(int j = 0; j < kDeltaScanValues.size(); ++j){
     const double delta_true = kDeltaScanValues[j];
 
-    double coverage = 0;
-
-    for(int i = 0; i < Nmax*invstep; ++i){
-      const double Nobs = i/double(invstep);
-
-      // Probablility of observing Nobs given delta_true
-      const double prob = gaus(Nobs, Nexp(delta_true))/double(invstep);
-
-      const double chisq_true = chisq(Nobs, Nexp(delta_true));
-
-      const double dchisq = chisq_true - chisq_best[i];
-
-      if(dchisq <= dchisq_crit[j]) coverage += prob;
-    } // end for Nobs
-
-    cov[j] = coverage;
+    cov[j] = evaluate_coverage_single(delta_true, dchisq_crit[j], chisq_best);
   } // end for delta_true
 
   return cov;
