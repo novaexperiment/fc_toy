@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <cassert>
 #include <cmath>
 #include <iostream>
 #include <vector>
@@ -21,9 +22,20 @@ std::vector<double> DeltaScanValues()
 
 const std::vector<double> kDeltaScanValues = DeltaScanValues();
 
-double Nexp(double delta)
+enum Hierarchy
 {
-  return A-B*sin(delta)+C; // hardcoded normal hierarchy here
+  kNH,
+  kIH,
+  kEither
+};
+
+double Nexp(double delta, Hierarchy hie)
+{
+  assert(hie != kEither); // meaningless here
+  if(hie == kNH)
+    return A-B*sin(delta)+C;
+  else
+    return A-B*sin(delta)-C;
 }
 
 double chisq(double obs, double exp)
@@ -39,17 +51,23 @@ double gaus(double x, double mu)
 }
 
 // Precompute what the best chisq would be for each number of observed events
-std::vector<double> precompute_chisq_best()
+std::vector<double> precompute_chisq_best(Hierarchy hie)
 {
   std::vector<double> chisq_best(Nmax*invstep);
+
+  // What's the maximum and minimum number of events that can be predicted?
+  const double minExp = (hie == kNH) ? A-B+C : A-B-C;
+  const double maxExp = (hie == kIH) ? A+B-C : A+B+C;
+  // NB there's no number of events "between" the two curves so we don't have
+  // to allow for that case specially.
 
   for(int i = 0; i < Nmax*invstep; ++i){
     const double Nobs = i/double(invstep);
 
     // Normal hierarchy assumption is currently hardcoded here in + sign on C
-    if(Nobs < A-B+C) chisq_best[i] = chisq(Nobs, A-B-C);
-    else if(Nobs < A+B+C) chisq_best[i] = 0; // find a perfect fit somewhere
-    else chisq_best[i] = chisq(Nobs, A+B+C);
+    if(Nobs < minExp) chisq_best[i] = chisq(Nobs, minExp);
+    else if(Nobs < maxExp) chisq_best[i] = 0; // find a perfect fit somewhere
+    else chisq_best[i] = chisq(Nobs, maxExp);
   }
 
   return chisq_best;
@@ -70,6 +88,7 @@ struct Expt
 };
 
 std::vector<Expt> mock_expts(double delta_true,
+                             Hierarchy hie_true,
                              const std::vector<double>& chisq_best)
 {
   std::vector<Expt> expts;
@@ -77,10 +96,10 @@ std::vector<Expt> mock_expts(double delta_true,
   for(int i = 0; i < Nmax*invstep; ++i){
     const double Nobs = i/double(invstep);
 
-    // Probablility of observing Nobs given delta_true
-    const double prob = gaus(Nobs, Nexp(delta_true))/double(invstep);
+    // Probablility of observing Nobs given truth
+    const double prob = gaus(Nobs, Nexp(delta_true, hie_true))/double(invstep);
 
-    const double chisq_true = chisq(Nobs, Nexp(delta_true));
+    const double chisq_true = chisq(Nobs, Nexp(delta_true, hie_true));
 
     const double dchisq = chisq_true - chisq_best[i];
 
@@ -91,9 +110,10 @@ std::vector<Expt> mock_expts(double delta_true,
 }
 
 double fc_critical_value_single(double delta_true,
+                                Hierarchy hie_true,
                                 const std::vector<double>& chisq_best)
 {
-  std::vector<Expt> expts = mock_expts(delta_true, chisq_best);
+  std::vector<Expt> expts = mock_expts(delta_true, hie_true, chisq_best);
 
   std::sort(expts.begin(), expts.end()); // from low to high dchisq
 
@@ -107,26 +127,28 @@ double fc_critical_value_single(double delta_true,
   abort();
 }
 
-std::vector<double> fc_critical_values(const std::vector<double>& chisq_best)
+std::vector<double> fc_critical_values(Hierarchy assumed_hie,
+                                       const std::vector<double>& chisq_best)
 {
   std::vector<double> dchisq_crit(kDeltaScanValues.size());
 
   for(int j = 0; j < kDeltaScanValues.size(); ++j){
     const double delta_true = kDeltaScanValues[j];
 
-    dchisq_crit[j] = fc_critical_value_single(delta_true, chisq_best);
+    dchisq_crit[j] = fc_critical_value_single(delta_true, assumed_hie, chisq_best);
   } // end for delta_true (j)
 
   return dchisq_crit;
 }
 
 double evaluate_coverage_single(double delta_true,
+                                Hierarchy hie_true,
                                 double dchisq_crit,
                                 const std::vector<double>& chisq_best)
 {
   double coverage = 0;
 
-  const std::vector<Expt> expts = mock_expts(delta_true, chisq_best);
+  const std::vector<Expt> expts = mock_expts(delta_true, hie_true, chisq_best);
 
   for(const Expt& e: expts){
     if(e.dchisq <= dchisq_crit){
@@ -137,7 +159,8 @@ double evaluate_coverage_single(double delta_true,
   return coverage;
 }
 
-std::vector<double> evaluate_coverage(const std::vector<double>& dchisq_crit,
+std::vector<double> evaluate_coverage(Hierarchy hie_true,
+                                      const std::vector<double>& dchisq_crit,
                                       const std::vector<double>& chisq_best)
 {
   std::vector<double> cov(kDeltaScanValues.size());
@@ -145,7 +168,7 @@ std::vector<double> evaluate_coverage(const std::vector<double>& dchisq_crit,
   for(int j = 0; j < kDeltaScanValues.size(); ++j){
     const double delta_true = kDeltaScanValues[j];
 
-    cov[j] = evaluate_coverage_single(delta_true, dchisq_crit[j], chisq_best);
+    cov[j] = evaluate_coverage_single(delta_true, hie_true, dchisq_crit[j], chisq_best);
   } // end for delta_true
 
   return cov;
@@ -172,17 +195,17 @@ int main(int argc, char** argv)
   }
 
   // Precompute what the best chisq would be for each number of observed events
-  const std::vector<double> chisq_best = precompute_chisq_best();
+  const std::vector<double> chisq_best = precompute_chisq_best(kNH); // TODO
 
   std::cerr << "Computing critical values..." << std::endl;
 
   std::vector<double> dchisq_crit;
   if(method == kWilks) dchisq_crit = wilks_critical_values();
-  if(method == kFC) dchisq_crit = fc_critical_values(chisq_best);
+  if(method == kFC) dchisq_crit = fc_critical_values(kNH, chisq_best); // TODO
 
   std::cerr << "Evaluating coverage..." << std::endl;
 
-  const std::vector<double> coverage = evaluate_coverage(dchisq_crit, chisq_best);
+  const std::vector<double> coverage = evaluate_coverage(kNH, dchisq_crit, chisq_best); // TODO
 
   std::cout << "delta_true\tcoverage\tdchisq_crit" << std::endl;
 
