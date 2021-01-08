@@ -23,7 +23,7 @@ void plot(std::string fname, std::string covname = "", std::string critname = ""
     gcrit->SetPoint(gcrit->GetN(), delta, crit);
   }
 
-  (new TH2F("", ";#delta_{true};Coverage (%)", 100, 0, 2*M_PI, 100, 50, 100))->Draw();
+  (new TH2F("", ";#delta_{true};Coverage (%)", 100, 0, 2*M_PI, 100, 0, 100))->Draw();
 
   gcov->SetLineWidth(2);
   gcov->Draw("l same");

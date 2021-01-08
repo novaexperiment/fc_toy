@@ -1,6 +1,6 @@
 #!/bin/bash
 
-for METH in wilks fc
+for METH in wilks fc hc
 do
     for TRUTH in nh ih
     do
