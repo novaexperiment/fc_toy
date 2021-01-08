@@ -1,4 +1,5 @@
 #include <algorithm>
+#undef NDEBUG // always want assertions to fire
 #include <cassert>
 #include <cmath>
 #include <iostream>
@@ -53,11 +54,13 @@ double gaus(double x, double mu)
 // Precompute what the best chisq would be for each number of observed events
 std::vector<double> precompute_chisq_best(Hierarchy hie)
 {
+  assert(hie != kEither);
+
   std::vector<double> chisq_best(Nmax*invstep);
 
   // What's the maximum and minimum number of events that can be predicted?
   const double minExp = (hie == kNH) ? A-B+C : A-B-C;
-  const double maxExp = (hie == kIH) ? A+B-C : A+B+C;
+  const double maxExp = (hie == kNH) ? A+B+C : A+B-C;
   // NB there's no number of events "between" the two curves so we don't have
   // to allow for that case specially.
 
@@ -110,10 +113,10 @@ std::vector<Expt> mock_expts(double delta_true,
 }
 
 double fc_critical_value_single(double delta_true,
-                                Hierarchy hie_true,
+                                Hierarchy hie_assumed,
                                 const std::vector<double>& chisq_best)
 {
-  std::vector<Expt> expts = mock_expts(delta_true, hie_true, chisq_best);
+  std::vector<Expt> expts = mock_expts(delta_true, hie_assumed, chisq_best);
 
   std::sort(expts.begin(), expts.end()); // from low to high dchisq
 
@@ -188,24 +191,38 @@ int main(int argc, char** argv)
     if(std::string_view(argv[1]) == "fc") method = kFC;
   }
 
-  if(method == kInvalid){
-    std::cerr << "Usage: fc METHOD" << std::endl
-              << "  METHOD: 'wilks' or 'fc'" << std::endl;
+  Hierarchy trueHie = kEither;
+  if(argc > 2){
+    if(std::string_view(argv[2]) == "nh") trueHie = kNH;
+    if(std::string_view(argv[2]) == "ih") trueHie = kIH;
+  }
+
+  Hierarchy assumedHie = kEither;
+  if(argc > 3){
+    if(std::string_view(argv[3]) == "nh") assumedHie = kNH;
+    if(std::string_view(argv[3]) == "ih") assumedHie = kIH;
+  }
+
+  if(method == kInvalid || trueHie == kEither || assumedHie == kEither){
+    std::cerr << "Usage: fc METHOD TRUEHIE ASSUMEDHIE" << std::endl
+              << "  METHOD:     'wilks' or 'fc'" << std::endl
+              << "  TRUEHIE:    'nh' or 'ih'. True hierarchy (to evaluate coverage w.r.t)" << std::endl
+              << "  ASSUMEDHIE: 'nh' or 'ih'. Assumed hierarchy in throwing and fitting expts" << std::endl;
     return 1;
   }
 
   // Precompute what the best chisq would be for each number of observed events
-  const std::vector<double> chisq_best = precompute_chisq_best(kNH); // TODO
+  const std::vector<double> chisq_best = precompute_chisq_best(assumedHie);
 
   std::cerr << "Computing critical values..." << std::endl;
 
   std::vector<double> dchisq_crit;
   if(method == kWilks) dchisq_crit = wilks_critical_values();
-  if(method == kFC) dchisq_crit = fc_critical_values(kNH, chisq_best); // TODO
+  if(method == kFC) dchisq_crit = fc_critical_values(assumedHie, chisq_best);
 
   std::cerr << "Evaluating coverage..." << std::endl;
 
-  const std::vector<double> coverage = evaluate_coverage(kNH, dchisq_crit, chisq_best); // TODO
+  const std::vector<double> coverage = evaluate_coverage(trueHie, dchisq_crit, chisq_best);
 
   std::cout << "delta_true\tcoverage\tdchisq_crit" << std::endl;
 
