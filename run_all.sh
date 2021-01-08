@@ -4,13 +4,16 @@ for METH in wilks fc
 do
     for TRUTH in nh ih
     do
-        for ASSUME in nh ih
+        for FIT in nh ih either
         do
-            DESC=${METH}_${TRUTH}_${ASSUME}
-            echo $DESC
-            ./fc $METH $TRUTH $ASSUME > ${DESC}.txt
-            echo Plotting...
-            root -b -q plot.C'("'$DESC'.txt", "plots/cov_'$DESC'.pdf", "plots/crit_'$DESC'.pdf")'
+            for MOCK in nh ih
+            do
+                DESC=${METH}_${TRUTH}_${FIT}_${MOCK}
+                echo $DESC
+                ./fc $METH $TRUTH $FIT $MOCK > ${DESC}.txt
+                echo Plotting...
+                root -b -q -l plot.C'("'$DESC'.txt", "plots/cov_'$DESC'.pdf", "plots/crit_'$DESC'.pdf")'
+            done
         done
     done
 done
