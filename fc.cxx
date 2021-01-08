@@ -104,7 +104,9 @@ std::vector<Expt> mock_expts(double delta_true,
     // Probablility of observing Nobs given truth
     const double prob = gaus(Nobs, Nexp(delta_true, hie_true))/double(invstep);
 
-    const double chisq_true = chisq(Nobs, Nexp(delta_true, hie_true));
+    // TODO this should be configurable (is currently 'either')
+    const double chisq_true = std::min(chisq(Nobs, Nexp(delta_true, kNH)),
+                                       chisq(Nobs, Nexp(delta_true, kIH)));
 
     const double dchisq = chisq_true - chisq_best[i];
 
