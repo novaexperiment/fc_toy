@@ -216,11 +216,51 @@ std::vector<double> evaluate_coverage(Hierarchy hie_true,
   return cov;
 }
 
+double evaluate_coverage_prof_single(double delta_true,
+                                     Hierarchy hie_true,
+                                     double dchisq_crit_nh,
+                                     double dchisq_crit_ih,
+                                     const std::vector<double>& chisq_best)
+{
+  double coverage = 0;
+
+  const std::vector<Expt> expts = mock_expts(delta_true, hie_true, chisq_best);
+
+  for(const Expt& e: expts){
+    // TODO check all this
+    // Seem to be equivalent. I think we can reason to that OK
+    const double dchisq_crit = (e.Nobs < A-B+C) ? dchisq_crit_ih : dchisq_crit_nh;
+    //    const double dchisq_crit = (e.Nobs > A+B-C) ? dchisq_crit_nh : dchisq_crit_ih;
+    if(e.dchisq <= dchisq_crit){
+      coverage += e.prob;
+    }
+  }
+
+  return coverage;
+}
+
+std::vector<double> evaluate_coverage_prof(Hierarchy hie_true,
+                                           const std::vector<double>& dchisq_crit_nh,
+                                           const std::vector<double>& dchisq_crit_ih,
+                                           const std::vector<double>& chisq_best)
+{
+  std::vector<double> cov(kDeltaScanValues.size());
+
+  for(int j = 0; j < kDeltaScanValues.size(); ++j){
+    const double delta_true = kDeltaScanValues[j];
+
+    cov[j] = evaluate_coverage_prof_single(delta_true, hie_true, dchisq_crit_nh[j], dchisq_crit_ih[j], chisq_best);
+  } // end for delta_true
+
+  return cov;
+}
+
 enum EMethod{
   kInvalid,
   kWilks,
   kFC,
-  kHC // Highland-Cousins
+  kHC, // Highland-Cousins
+  kProf // "profiled"
 };
 
 int main(int argc, char** argv)
@@ -230,6 +270,7 @@ int main(int argc, char** argv)
     if(std::string_view(argv[1]) == "wilks") method = kWilks;
     if(std::string_view(argv[1]) == "fc") method = kFC;
     if(std::string_view(argv[1]) == "hc") method = kHC;
+    if(std::string_view(argv[1]) == "prof") method = kProf;
   }
 
   Hierarchy trueHie = kEither;
@@ -253,9 +294,9 @@ int main(int argc, char** argv)
   if(method == kInvalid || trueHie == kEither ||
      (mockHie == kEither && method == kFC)){
     std::cerr << "Usage: fc METHOD TRUEHIE FITHIE MOCKHIE" << std::endl
-              << "  METHOD:  'wilks', 'fc' or 'hc'" << std::endl
+              << "  METHOD:  'wilks', 'fc', 'hc' or 'prof'" << std::endl
               << "  TRUEHIE: 'nh' or 'ih'. True hierarchy (to evaluate coverage w.r.t)" << std::endl
-              << "  FITHIE:  'nh', 'ih' or 'either'. Hierarchy assumed when fitting" << std::endl
+              << "  FITHIE:  'nh', 'ih' or 'either'. Hierarchy assumed when fitting (unused for 'prof')" << std::endl
               << "  MOCKHIE: 'nh' or 'ih'. Hierarchy used for mock experiments ('fc' only)" << std::endl;
     return 1;
   }
@@ -270,9 +311,22 @@ int main(int argc, char** argv)
   if(method == kFC) dchisq_crit = fc_critical_values(mockHie, chisq_best);
   if(method == kHC) dchisq_crit = hc_critical_values(chisq_best);
 
+  std::vector<double> dchisq_crit_nh, dchisq_crit_ih;
+  if(method == kProf){
+    dchisq_crit = std::vector<double>(DeltaScanValues().size(), -1);
+    dchisq_crit_nh = fc_critical_values(kNH, chisq_best);
+    dchisq_crit_ih = fc_critical_values(kIH, chisq_best);
+  }
+
   std::cerr << "Evaluating coverage..." << std::endl;
 
-  const std::vector<double> coverage = evaluate_coverage(trueHie, dchisq_crit, chisq_best);
+  std::vector<double> coverage;
+  if(method != kProf){
+    coverage = evaluate_coverage(trueHie, dchisq_crit, chisq_best);
+  }
+  else{
+    coverage = evaluate_coverage_prof(trueHie, dchisq_crit_nh, dchisq_crit_ih, chisq_best);
+  }
 
   std::cout << "delta_true\tcoverage\tdchisq_crit" << std::endl;
 
