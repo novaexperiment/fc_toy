@@ -1,3 +1,4 @@
+#include "TCanvas.h"
 #include "TGraph.h"
 #include "TH2.h"
 #include "TPad.h"
@@ -6,7 +7,7 @@
 
 std::string junks;
 
-TGraph* load_coverage(std::string fname)
+TGraph* load_coverage(std::string fname, int col, int style = kSolid)
 {
   std::ifstream fin(fname);
 
@@ -21,10 +22,14 @@ TGraph* load_coverage(std::string fname)
     gcov->SetPoint(gcov->GetN(), delta, coverage);
   }
 
+  gcov->SetLineWidth(2);
+  gcov->SetLineColor(col);
+  gcov->SetLineStyle(style);
+
   return gcov;
 }
 
-TGraph* load_crit(std::string fname)
+TGraph* load_crit(std::string fname, int col, int style = kSolid)
 {
   std::ifstream fin(fname);
 
@@ -38,6 +43,10 @@ TGraph* load_crit(std::string fname)
 
     gcrit->SetPoint(gcrit->GetN(), delta, crit);
   }
+
+  gcrit->SetLineWidth(2);
+  gcrit->SetLineColor(col);
+  gcrit->SetLineStyle(style);
 
   return gcrit;
 }
@@ -57,17 +66,12 @@ void compare()
     if(i == 2){meth = "hc"; col = kGreen+2;}
     if(i == 3){meth = "prof"; col = kBlue;}
 
-    TGraph* gcov_nh = load_coverage(meth+"_nh_either_nh.txt");
-    TGraph* gcov_ih = load_coverage(meth+"_ih_either_nh.txt");
+    TGraph* gcov_nh = load_coverage(meth+"_nh_either_nh.txt", col);
+    TGraph* gcov_ih = load_coverage(meth+"_ih_either_nh.txt", col, 7);
 
     (new TH2F("", (meth+";#delta_{true};Coverage (%)").c_str(), 100, 0, 2*M_PI, 100, 0, 100))->Draw();
 
-    gcov_nh->SetLineColor(col);
-    gcov_nh->SetLineWidth(2);
     gcov_nh->Draw("l same");
-    gcov_ih->SetLineColor(col);
-    gcov_ih->SetLineStyle(7);
-    gcov_ih->SetLineWidth(2);
     gcov_ih->Draw("l same");
   }
 
@@ -82,28 +86,30 @@ void compare()
   */
 
   new TCanvas;
-  TGraph* gwilks = load_crit("wilks_nh_either_nh.txt");
-  TGraph* gfcnh = load_crit("fc_nh_either_nh.txt");
-  TGraph* gfcih = load_crit("fc_nh_either_ih.txt");
-  TGraph* ghc = load_crit("hc_nh_either_nh.txt");
-  //  TGraph* gprof = load_crit("prof_nh_either_nh.txt");
+  (new TH2F("", ";#delta_{true};Coverage (%)", 100, 0, 2*M_PI, 100, 50, 90))->Draw();
+  TGraph* gcov_hc_nh = load_coverage("hc_nh_either_nh.txt", kGreen+2);
+  TGraph* gcov_hc_ih = load_coverage("hc_ih_either_nh.txt", kGreen+2, 7);
+  TGraph* gcov_prof_nh = load_coverage("prof_nh_either_nh.txt", kBlue);
+  TGraph* gcov_prof_ih = load_coverage("prof_ih_either_nh.txt", kBlue, 7);
 
-  gwilks->SetLineWidth(2);
-  gfcnh->SetLineWidth(2);
-  gfcih->SetLineWidth(2);
-  ghc->SetLineWidth(2);
+  gcov_hc_nh->Draw("l same");
+  gcov_hc_ih->Draw("l same");
+  gcov_prof_nh->Draw("l same");
+  gcov_prof_ih->Draw("l same");
 
-  gfcnh->SetLineColor(kRed);
-  gfcih->SetLineColor(kRed);
-  gfcih->SetLineStyle(7);
-  ghc->SetLineColor(kGreen+2);
+  gPad->Print("comp_cov_overlay.png");
+
+  new TCanvas;
+  TGraph* gwilks = load_crit("wilks_nh_either_nh.txt", kBlack);
+  TGraph* gfcnh = load_crit("fc_nh_either_nh.txt", kRed);
+  TGraph* gfcih = load_crit("fc_nh_either_ih.txt", kRed, 7);
+  TGraph* ghc = load_crit("hc_nh_either_nh.txt", kGreen+2);
 
   (new TH2F("", ";#delta_{true};Critical value", 100, 0, 2*M_PI, 100, 0, 2))->Draw();
   gwilks->Draw("l same");
   gfcnh->Draw("l same");
   gfcih->Draw("l same");
   ghc->Draw("l same");
-  //  gprof->Draw("l same");
 
   gPad->Print("comp_crit.png");
 }
