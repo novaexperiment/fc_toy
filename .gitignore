@@ -1,4 +1,8 @@
 *~
+*.d
+*.so
+*.pcm
 *.pdf
+*.png
 *.txt
 fc
