@@ -5,6 +5,8 @@
 #include <iostream>
 #include <vector>
 
+const double kTargetCoverage = .6827;
+
 const double A = 35;
 const double B = 6;
 const double C = 5;
@@ -12,7 +14,7 @@ const double C = 5;
 const int Nmax = A+B+C + 5*sqrt(A+B+C); // don't consider fluctuations beyond 5sigma
 //const int Nmin = A+B+C - 5*sqrt(A+B+C); // don't consider fluctuations beyond 5sigma
 
-const int invstep = 50; // step by .02 event. Do it this way around so we can work with arrays with integer indices
+const int invstep = 400; // step by .025 event. Do it this way around so we can work with arrays with integer indices. Increase for smoother plots
 
 std::vector<double> DeltaScanValues()
 {
@@ -116,6 +118,30 @@ std::vector<Expt> mock_expts(double delta_true,
   return expts;
 }
 
+double interpolate(double x, double x0, double x1, double y0, double y1)
+{
+  return y0 + (x-x0)/(x1-x0) * (y1-y0);
+}
+
+double find_quantile(const std::vector<Expt>& expts)
+{
+  double prev_dchisq = 0;
+  double cov = 0;
+
+  for(const Expt& e: expts){
+    if(cov+e.prob > kTargetCoverage){
+      return interpolate(kTargetCoverage,
+                         cov, cov+e.prob,
+                         prev_dchisq, e.dchisq);
+    }
+
+    cov += e.prob;
+    prev_dchisq = e.dchisq;
+  }
+
+  abort();
+}
+
 double fc_critical_value_single(double delta_mock,
                                 Hierarchy hie_mock,
                                 const std::vector<double>& chisq_best)
@@ -124,14 +150,7 @@ double fc_critical_value_single(double delta_mock,
 
   std::sort(expts.begin(), expts.end()); // from low to high dchisq
 
-  double cov = 0;
-  double crit = 0;
-  for(const Expt& e: expts){
-    cov += e.prob;
-    if(cov > .6827) return e.dchisq; // TODO interpolate to previous value?
-  }
-
-  abort();
+  return find_quantile(expts);
 }
 
 std::vector<double> fc_critical_values(Hierarchy assumed_hie,
@@ -162,14 +181,7 @@ double hc_critical_value_single(double delta_mock,
 
   std::sort(expts.begin(), expts.end()); // from low to high dchisq
 
-  double cov = 0;
-  double crit = 0;
-  for(const Expt& e: expts){
-    cov += e.prob;
-    if(cov > .6827) return e.dchisq; // TODO interpolate to previous value?
-  }
-
-  abort();
+  return find_quantile(expts);
 }
 
 std::vector<double> hc_critical_values(const std::vector<double>& chisq_best)
