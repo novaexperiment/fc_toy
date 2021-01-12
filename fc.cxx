@@ -150,7 +150,7 @@ std::vector<double> fc_critical_values(Hierarchy assumed_hie,
 
 
 double hc_critical_value_single(double delta_mock,
-                                   const std::vector<double>& chisq_best)
+                                const std::vector<double>& chisq_best)
 {
   // 50-50 mixture of NH and IH experiments (based on our prior)
   std::vector<Expt> exptsNH = mock_expts(delta_mock, kNH, chisq_best);
@@ -229,10 +229,13 @@ double evaluate_coverage_prof_single(double delta_true,
   const std::vector<Expt> expts = mock_expts(delta_true, hie_true, chisq_best);
 
   for(const Expt& e: expts){
-    // TODO check all this
-    // Seem to be equivalent. I think we can reason to that OK
-    const double dchisq_crit = (e.Nobs < A-B+C) ? dchisq_crit_ih : dchisq_crit_nh;
-    //    const double dchisq_crit = (e.Nobs > A+B-C) ? dchisq_crit_nh : dchisq_crit_ih;
+    // Assuming this value of delta, which hierarchy has the best likelihood?
+    const double chisq_NH = chisq(e.Nobs, Nexp(delta_true, kNH));
+    const double chisq_IH = chisq(e.Nobs, Nexp(delta_true, kIH));
+
+    // Use the appropriate critical value for the most likely hierarchy
+    const double dchisq_crit = (chisq_NH < chisq_IH) ? dchisq_crit_nh : dchisq_crit_ih;
+
     if(e.dchisq <= dchisq_crit){
       coverage += e.prob;
     }
