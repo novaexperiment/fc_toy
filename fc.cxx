@@ -7,9 +7,10 @@
 
 const double kTargetCoverage = .6827;
 
-const double A = 35;
-const double B = 6;
-const double C = 5;
+// Very approximate model of the NOvA FHC 13.6e20 POT nue event counts
+const double A = 80;
+const double B = 15;
+const double C = 10;
 
 const int Nmax = A+B+C + 5*sqrt(A+B+C); // don't consider fluctuations beyond 5sigma
 //const int Nmin = A+B+C - 5*sqrt(A+B+C); // don't consider fluctuations beyond 5sigma
