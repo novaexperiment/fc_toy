@@ -310,7 +310,8 @@ int main(int argc, char** argv)
   }
 
   if(method == kInvalid || trueHie == kEither ||
-     (mockHie == kEither && method == kFC)){
+     (mockHie == kEither && method == kFC) ||
+     (fitHie != kEither && method == kProf)){
     std::cerr << "Usage: fc METHOD TRUEHIE FITHIE MOCKHIE" << std::endl
               << "  METHOD:  'wilks', 'fc', 'hc' or 'prof'" << std::endl
               << "  TRUEHIE: 'nh' or 'ih'. True hierarchy (to evaluate coverage w.r.t)" << std::endl

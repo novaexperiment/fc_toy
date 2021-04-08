@@ -6,9 +6,18 @@ do
     do
         for FIT in nh ih either
         do
+            # FIT is unused for the profile method
+            if [[ $METH == prof && $FIT != either ]]; then continue; fi
+
             for MOCK in nh ih
             do
-                DESC=${METH}_${TRUTH}_${FIT}_${MOCK}
+                # MOCK is only used for the FC method
+                if [[ $METH != fc && $MOCK != nh ]]; then continue; fi
+
+                DESC=${METH}_${TRUTH}
+                if [[ $METH != prof ]]; then DESC=${DESC}_${FIT}; fi
+                if [[ $METH == fc ]]; then DESC=${DESC}_${MOCK}; fi
+
                 echo $DESC
                 ./fc $METH $TRUTH $FIT $MOCK > ${DESC}.txt
                 echo Plotting...
