@@ -1,6 +1,8 @@
 #!/bin/bash
 
-for METH in wilks fc hc prof
+mkdir -p plots
+
+for METH in wilks fc hc prof post
 do
     for TRUTH in nh ih
     do
@@ -8,6 +10,8 @@ do
         do
             # FIT is unused for the profile method
             if [[ $METH == prof && $FIT != either ]]; then continue; fi
+            # Ditto post
+            if [[ $METH == post && $FIT != either ]]; then continue; fi
 
             for MOCK in nh ih
             do
@@ -15,7 +19,7 @@ do
                 if [[ $METH != fc && $MOCK != nh ]]; then continue; fi
 
                 DESC=${METH}_${TRUTH}
-                if [[ $METH != prof ]]; then DESC=${DESC}_${FIT}; fi
+                if [[ $METH != prof && $METH != post ]]; then DESC=${DESC}_${FIT}; fi
                 if [[ $METH == fc ]]; then DESC=${DESC}_${MOCK}; fi
 
                 echo $DESC

@@ -273,12 +273,105 @@ std::vector<double> evaluate_coverage_prof(Hierarchy hie_true,
   return cov;
 }
 
+double evaluate_coverage_post_single(double delta_true,
+                                     Hierarchy hie_true,
+                                     double dchisq_crit_nh,
+                                     double dchisq_crit_ih,
+                                     const std::vector<Expt>& expts_nh,
+                                     const std::vector<Expt>& expts_ih,
+                                     const std::vector<double>& chisq_best)
+{
+  double coverage = 0;
+
+  const std::vector<Expt> expts = mock_expts(delta_true, hie_true, chisq_best);
+
+  for(const Expt& e: expts){
+    // Assuming this value of delta, what are the likelihoods for the hierarchies?
+    const double chisq_NH = chisq(e.Nobs, Nexp(delta_true, kNH));
+    const double chisq_IH = chisq(e.Nobs, Nexp(delta_true, kIH));
+
+    double p_NH = exp(-chisq_NH/2);
+    double p_IH = exp(-chisq_IH/2);
+    const double p_tot = p_NH + p_IH;
+    p_NH /= p_tot;
+    p_IH /= p_tot;
+
+    // Two cases we can be certain the weighting won't affect
+    if(e.dchisq <= dchisq_crit_nh && e.dchisq <= dchisq_crit_ih){
+      coverage += e.prob;
+      continue;
+    }
+    if(e.dchisq > dchisq_crit_nh && e.dchisq > dchisq_crit_ih){
+      continue;
+    }
+
+    // Weight experiments by these likelihoods
+    static std::vector<Expt> expts;
+    expts.reserve(expts_nh.size() + expts_ih.size());
+
+    // This is more complicated than just combining the two lists and then
+    // sorting, but avoiding the sorting operation should be faster. We keep
+    // taking the lower chisq of the two lists until they are exhausted.
+    unsigned int idxNH = 0;
+    unsigned int idxIH = 0;
+    const unsigned int N_NH = expts_nh.size();
+    const unsigned int N_IH = expts_ih.size();
+
+    while(idxNH < N_NH && idxIH < N_IH){
+      if(idxNH < N_NH && (idxIH == N_IH || expts_nh[idxNH].dchisq <= expts_ih[idxIH].dchisq)){
+        expts.push_back(expts_nh[idxNH]);
+        expts.back().prob *= p_NH;
+        ++idxNH;
+      }
+      if(idxIH < N_IH && (idxNH == N_NH || expts_ih[idxIH].dchisq <= expts_nh[idxNH].dchisq)){
+        expts.push_back(expts_ih[idxIH]);
+        expts.back().prob *= p_IH;
+        ++idxIH;
+      }
+    }
+
+    const double dchisq_crit = find_quantile(expts);
+
+    if(e.dchisq <= dchisq_crit){
+      coverage += e.prob;
+    }
+  }
+
+  return coverage;
+}
+
+std::vector<double> evaluate_coverage_post(Hierarchy hie_true,
+                                           const std::vector<double>& chisq_best)
+{
+  std::vector<double> cov(kDeltaScanValues.size());
+
+  for(int j = 0; j < kDeltaScanValues.size(); ++j){
+    // This one is slow, so provide a progress indication
+    std::cerr << j << " / " << kDeltaScanValues.size() << std::endl;
+    const double delta_true = kDeltaScanValues[j];
+
+    // TODO think about if these are the right arguments
+    std::vector<Expt> expts_nh = mock_expts(delta_true, kNH, chisq_best);
+    std::vector<Expt> expts_ih = mock_expts(delta_true, kIH, chisq_best);
+    std::sort(expts_nh.begin(), expts_nh.end());
+    std::sort(expts_ih.begin(), expts_ih.end());
+
+    const double dchisq_crit_nh = find_quantile(expts_nh);
+    const double dchisq_crit_ih = find_quantile(expts_ih);
+
+    cov[j] = evaluate_coverage_post_single(delta_true, hie_true, dchisq_crit_nh, dchisq_crit_ih, expts_nh, expts_ih, chisq_best);
+  } // end for delta_true
+
+  return cov;
+}
+
 enum EMethod{
   kInvalid,
   kWilks,
   kFC,
   kHC, // Highland-Cousins
-  kProf // "profiled"
+  kProf, // "profiled"
+  kPost // weighted by posterior distribution
 };
 
 int main(int argc, char** argv)
@@ -289,6 +382,7 @@ int main(int argc, char** argv)
     if(std::string_view(argv[1]) == "fc") method = kFC;
     if(std::string_view(argv[1]) == "hc") method = kHC;
     if(std::string_view(argv[1]) == "prof") method = kProf;
+    if(std::string_view(argv[1]) == "post") method = kPost;
   }
 
   Hierarchy trueHie = kEither;
@@ -311,9 +405,9 @@ int main(int argc, char** argv)
 
   if(method == kInvalid || trueHie == kEither ||
      (mockHie == kEither && method == kFC) ||
-     (fitHie != kEither && method == kProf)){
+     (fitHie != kEither && (method == kProf || method == kPost))){
     std::cerr << "Usage: fc METHOD TRUEHIE FITHIE MOCKHIE" << std::endl
-              << "  METHOD:  'wilks', 'fc', 'hc' or 'prof'" << std::endl
+              << "  METHOD:  'wilks', 'fc', 'hc', 'prof' or 'post'" << std::endl
               << "  TRUEHIE: 'nh' or 'ih'. True hierarchy (to evaluate coverage w.r.t)" << std::endl
               << "  FITHIE:  'nh', 'ih' or 'either'. Hierarchy assumed when fitting (unused for 'prof')" << std::endl
               << "  MOCKHIE: 'nh' or 'ih'. Hierarchy used for mock experiments ('fc' only)" << std::endl;
@@ -330,9 +424,13 @@ int main(int argc, char** argv)
   if(method == kFC) dchisq_crit = fc_critical_values(mockHie, chisq_best);
   if(method == kHC) dchisq_crit = hc_critical_values(chisq_best);
 
+  // Just need something here
+  if(method == kProf || method == kPost){
+    dchisq_crit = std::vector<double>(DeltaScanValues().size(), -1);
+  }
+
   std::vector<double> dchisq_crit_nh, dchisq_crit_ih;
   if(method == kProf){
-    dchisq_crit = std::vector<double>(DeltaScanValues().size(), -1);
     dchisq_crit_nh = fc_critical_values(kNH, chisq_best);
     dchisq_crit_ih = fc_critical_values(kIH, chisq_best);
   }
@@ -340,11 +438,14 @@ int main(int argc, char** argv)
   std::cerr << "Evaluating coverage..." << std::endl;
 
   std::vector<double> coverage;
-  if(method != kProf){
-    coverage = evaluate_coverage(trueHie, dchisq_crit, chisq_best);
+  if(method == kProf){
+    coverage = evaluate_coverage_prof(trueHie, dchisq_crit_nh, dchisq_crit_ih, chisq_best);
+  }
+  else if(method == kPost){
+    coverage = evaluate_coverage_post(trueHie, chisq_best);
   }
   else{
-    coverage = evaluate_coverage_prof(trueHie, dchisq_crit_nh, dchisq_crit_ih, chisq_best);
+    coverage = evaluate_coverage(trueHie, dchisq_crit, chisq_best);
   }
 
   std::cout << "delta_true\tcoverage\tdchisq_crit" << std::endl;
