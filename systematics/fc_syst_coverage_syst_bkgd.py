@@ -49,19 +49,13 @@ def main():
             biasstr = "$ correct"
             if biasratio > 0 or biasratio < 0:
                 biasstr = f" = {biasratio:+.1g}\sigma$"
-            #titles[case] = "$\sigma_{syst}/\sigma_{stat} = " + errstr + ", B_{0}" + biasstr
             titles[case] = "$\sigma_{syst}/\sigma_{stat} = " + f"{errratio:.2}" + ", B_{true}/S_{true} = "+f"{B0/Strue:.2}$"
-            #titles[case] = f"systerr={systerr:.2g} S={Strue:g} B={Btrue:g}"
-            #titles[case] = f"systerr={systerr*B0:.2g} staterr={staterr*Strue:.2g} ratio={systerrAbs/staterrAbs:.3g}"
 
 
             ratios[case] = systerrAbs/staterrAbs
 
             # Set positions
             positions[case] = (y,x)
-
-    # for case in cases:
-    #     print(case, titles[case], cases[case])
 
 
     labels = { "FC": "Profiled FC",
@@ -75,8 +69,6 @@ def main():
         'FC': 'blue'
     }
 
-
-    
 
     all_pvals = {}
 

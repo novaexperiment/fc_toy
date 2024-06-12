@@ -52,19 +52,11 @@ def main():
             if biasratio > 0 or biasratio < 0:
                 biasstr = f" = {biasratio:+.1g}\sigma$"
             titles[case] = "$\sigma_{syst}/\sigma_{stat} = " + f"{errratio:.2}" + ", B_{0}" + biasstr
-            #titles[case] = "$\sigma_{syst}/\sigma_{stat} = " + f"{errratio:.2}" + ", B_{true}/S_{true} = "+f"{B0/Strue:.2}$"
-            #titles[case] = f"systerr={systerr:.2g} S={Strue:g} B={Btrue:g}"
-            #titles[case] = f"systerr={systerr*B0:.2g} staterr={staterr*Strue:.2g} ratio={systerrAbs/staterrAbs:.3g}"
-
-
             ratios[case] = systerrAbs/staterrAbs
             biases[case] = biasratio
 
             # Set positions
             positions[case] = (y,x)
-
-    # for case in cases:
-    #     print(case, titles[case], cases[case])
 
 
     labels = { "FC": "Profiled FC",
@@ -76,20 +68,7 @@ def main():
         'Wilks': 'red',
         'HC': 'green',
         'FC': 'blue'
-    }
-
-    # Get a dictionary of available line styles
-    # Filter out line styles that might not be visually distinct or useful
-    # Common line styles include '-', '--', '-.', ':'
-    line_styles = plt.Line2D.lineStyles
-    usable_styles = [style for style, func in line_styles.items() if style not in ['None', ' ', '']]
-    line_cycle = itertools.cycle(usable_styles)
-
-    ratio_style = {}
-    for ratio in set(ratios.values()):
-        ratio_style[ratio] = next(line_cycle)
-
-    
+    }    
 
     all_pvals = {}
 
