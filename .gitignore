@@ -5,4 +5,5 @@
 *.pdf
 *.png
 *.txt
+.DS_Store
 fc
