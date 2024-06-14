@@ -135,8 +135,8 @@ def critval(chisqs, cdf_value):
 # parameters of the toy experiments.
 #
 def generate_pvals( systerr = 0.04,    # Systematic uncertainty
-                    NTests  = 40000,  
-                    Nexp    = 20000,      # Number of pseudoexperiments to use
+                    sigmarng = 4,
+                    Nexp    = 100000,      # Number of pseudoexperiments to use
                     Strue   = 350.,
                     Btrue   = 150.,
                     B0      = 150.
@@ -154,17 +154,29 @@ def generate_pvals( systerr = 0.04,    # Systematic uncertainty
 
     HCchisquares = HighlandCousins(S1, B0, sigsq, Nexp)
 
-    for iTest in tqdm(range(NTests)):
-        # Set up the test experiment
-        Ndata = np.random.poisson(Strue + Btrue)
+    # Test every possible integer in +/- sigma range on count
+    Ntrue = Strue+Btrue
+    sigma = sqrt(Ntrue)
+    bottom = int(Ntrue - sigmarng*sigma + 0.5)
+    top    = int(Ntrue + sigmarng*sigma + 1.5)
+    minprob = sp.stats.norm.pdf(bottom, Ntrue, sigma)
 
+    
+    for Ndata in tqdm(range(bottom, top)):
         chisqData = chisq(S1, Ndata, B0, sigsq)
 
+        # These values are all the same for the same Ndata
         FCchisquares = ProfileFC(S1, Ndata, B0, sigsq, Nexp)
+        pWilks = 1 - sp.stats.chi2.cdf(chisqData, df=1) 
+        pFC    = 1 - cdf(FCchisquares, chisqData, err=False)
+        pHC    =  1 - cdf(HCchisquares, chisqData, err=False)
 
-        pvals["Wilks"].append( 1 - sp.stats.chi2.cdf(chisqData, df=1) )
-        pvals["FC"].append( 1 - cdf(FCchisquares, chisqData, err=False) )
-        pvals["HC"].append( 1 - cdf(HCchisquares, chisqData, err=False) )
+        # Recereate full distro by adding entries in proportion to probability
+        prob = sp.stats.norm.pdf(Ndata, Ntrue, sigma)
+        deweight = int(prob / minprob + 0.5)
+        pvals["Wilks"].append( (pWilks,deweight))
+        pvals["FC"].append(    (pFC,   deweight))
+        pvals["HC"].append(    (pHC,   deweight))
 
     return pvals
 
@@ -172,15 +184,24 @@ def generate_pvals( systerr = 0.04,    # Systematic uncertainty
 # Calculate how accurate the coverage of the true value is for
 # the given sets of toy experiment p-values
 # 
-def calcualte_accuracies(values, significance_levels):
+def calcualte_accuracies(weighted_values, significance_levels):
+    # Separate values and weights
+    values, weights = zip(*weighted_values)
+    values = np.array(values)
+    weights = np.array(weights)
+
     coverage_accuracies = []    
     errors = []
+
     for level in significance_levels:
         intended_coverage = 1-level
-        actual_coverage = np.mean(np.array(values) > level)
+        actual_coverage = np.average(np.array(values) > level, weights=weights)
         coverage_accuracy = (actual_coverage - intended_coverage)/level  # Updated according to your correction
-        # Calculate the binomial error
-        err = sqrt(actual_coverage * (1 - actual_coverage) / len(values))/level
+
+        # Calculate the binomial error considering weights
+        #effective_sample_size = np.sum(weights)**2 / np.sum(weights**2)
+        total = np.sum(weights)
+        err = sqrt(actual_coverage * (1 - actual_coverage) / total)/level
         
         coverage_accuracies.append(coverage_accuracy)
         errors.append(err)

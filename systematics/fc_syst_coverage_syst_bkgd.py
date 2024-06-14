@@ -81,7 +81,7 @@ def main():
                 all_pvals[case] = pickle.load(file)
             print("Loaded ",case," pvals from disk.")
         else:
-            all_pvals[case] = generate_pvals(**cargs, NTests=40000)
+            all_pvals[case] = generate_pvals(**cargs, sigmarng=5.5)
             with open(filename, 'wb') as file:
                 pickle.dump(all_pvals[case], file)
             print("Generated ",case," pvals and saved to disk.")
