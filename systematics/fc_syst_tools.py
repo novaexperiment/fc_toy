@@ -184,7 +184,7 @@ def generate_pvals( systerr = 0.04,    # Systematic uncertainty
 # Calculate how accurate the coverage of the true value is for
 # the given sets of toy experiment p-values
 # 
-def calcualte_accuracies(weighted_values, significance_levels):
+def calculate_accuracies(weighted_values, significance_levels):
     # Separate values and weights
     values, weights = zip(*weighted_values)
     values = np.array(values)
@@ -196,10 +196,9 @@ def calcualte_accuracies(weighted_values, significance_levels):
     for level in significance_levels:
         intended_coverage = 1-level
         actual_coverage = np.average(np.array(values) > level, weights=weights)
-        coverage_accuracy = (actual_coverage - intended_coverage)/level  # Updated according to your correction
+        coverage_accuracy = (actual_coverage - intended_coverage)/level
 
         # Calculate the binomial error considering weights
-        #effective_sample_size = np.sum(weights)**2 / np.sum(weights**2)
         total = np.sum(weights)
         err = sqrt(actual_coverage * (1 - actual_coverage) / total)/level
         
@@ -223,7 +222,7 @@ def calculate_statistics(all_pvals, significance_levels, specific_zs, specific_s
         errors[case] = {method: [] for method in pvals}
 
         for method, values in pvals.items():
-            coverage_accuracies[case][method], errors[case][method] = calcualte_accuracies(values, significance_levels)
+            coverage_accuracies[case][method], errors[case][method] = calculate_accuracies(values, significance_levels)
 
             specific_accuracies[case][method] = {}
             specific_errors[case][method] = {}

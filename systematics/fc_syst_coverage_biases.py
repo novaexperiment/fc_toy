@@ -154,7 +154,7 @@ def main():
 
 
     # Step 1: Prepare a 3x3 grid of subplots
-    fig, axs = plt.subplots(3, 3, figsize=(10, 10), sharex='col', sharey='row')
+    fig, axs = plt.subplots(3, 3, figsize=(10, 7), sharex='col', sharey='row')
     unique_ratios = sorted(set(ratios.values()))  # Assuming ratios[case] gives the ratio for that case
 
     # Iterate over each subplot to populate it with appropriate data
@@ -171,7 +171,7 @@ def main():
                         data = plot_data[z][method][ratio]
                         sorted_data = sorted(zip(data['biases'], data['accuracies']))
                         biases_sorted, accuracies_sorted = zip(*sorted_data)
-                    # Extracting errors corresponding to each bias point
+                        # Extracting errors corresponding to each bias point
                         errors = [specific_errors[case][method][z] for case in cases if ratios[case] == ratio]
 
                         # Plotting the data with error bands

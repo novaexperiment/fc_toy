@@ -150,7 +150,7 @@ def main():
     #
 
     # Create a figure with 3 subplots (one for each z value)
-    fig, axs = plt.subplots(1, 3, figsize=(10, 5), sharey=True)  # Adjust size as needed, with 3 horizontal subplots
+    fig, axs = plt.subplots(1, 3, figsize=(10, 3.5), sharey=True)  # Adjust size as needed, with 3 horizontal subplots
 
     # Iterate over z_values to create each subplot
     for i, z in enumerate([1, 2, 3]):
