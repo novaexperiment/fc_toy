@@ -190,7 +190,7 @@ def main():
             if i == 0:
                 ax.set_ylabel("$\sigma_{syst}/\sigma_{stat} = "+f' {ratio}''$\nCoverage Accuracy')
             if j == len(unique_ratios) - 1:
-                ax.set_xlabel(r"Bias in Estimated B0 ($\sigma_{syst}$)")
+                ax.set_xlabel(r"Bias in Estimated $B_{0}$ ($\sigma_{syst}$)")
 
     # Position the legend in the upper left subplot
     axs[0][0].legend(loc='upper left')
